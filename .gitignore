@@ -1,4 +1,5 @@
 dataset/test_ds
+!dataset/.gitkeep
 !dataset/test_ds/.gitkeep
 dataset/train_ds
 !dataset/train_ds/.gitkeep
