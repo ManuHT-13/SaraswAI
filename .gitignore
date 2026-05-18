@@ -1,6 +1,10 @@
 dataset/test_ds
+!dataset/test_ds/.gitkeep
 dataset/train_ds
+!dataset/train_ds/.gitkeep
 dataset/processed
+!dataset/processed/.gitkeep
 dataset/features
+!dataset/features/.gitkeep
 models/Practica_5_Neural_Networks_Training
 checkpoints/Cnn14_16k_mAP=0.438.pth
