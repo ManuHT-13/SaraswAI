@@ -1,3 +1,6 @@
-Paper_Tuberculosis.pdf
-nsynth-train-all
-Apuntes.docx
+dataset/test_ds
+dataset/train_ds
+dataset/processed
+dataset/features
+models/Practica_5_Neural_Networks_Training
+checkpoints/Cnn14_16k_mAP=0.438.pth
