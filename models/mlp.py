@@ -128,17 +128,27 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
     y ademas un Adam muy simple para ir adaptando alpha y converger mas rapidamente
     """
     thetas = copy.deepcopy(thetas_ini)
-    m      = X.shape[0]
+    m = X.shape[0]
 
-    beta1, beta2, eps = 0.9, 0.999, 1e-8
+    # Hiperparametros del Adam, beta1 controla el momentum y beta2 la velocidad
+    # (cuanto recordamos la direccion del gradiente anterior y cuanto su magnitud)
+    beta1 = 0.9
+    beta2 = 0.999
+    eps = 1e-8
+    # Momento (media movil del gradiente, direccion) para cada peso
     ms = [np.zeros_like(t) for t in thetas]
+    # Velocidad (media movil al cuadrado, magnitud) para cada peso
     vs = [np.zeros_like(t) for t in thetas]
+    # Contador de pasos 
     t  = 0
 
     J_history     = []
     J_val_history = []
 
+    # Para cada iteracion
     for i in range(num_iters):
+        # Mezclamos los valores en cada episodio para que el orden del dataset
+        # no sea un factor en el aprendizaje
         idx        = np.random.permutation(m)
         X_s, y_s   = X[idx], y[idx]
         iter_loss  = 0.0
@@ -148,14 +158,20 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
             X_batch = X_s[start : start + batch_size]
             y_batch = y_s[start : start + batch_size]
 
+            # Calculamos funcion de coste, y gradientes para cada peso
             J, grads = backprop(thetas, X_batch, y_batch, lambda_, class_weights)
             t += 1
 
             for k in range(len(thetas)):
+                # Calculamos los momentos para cada peso
                 ms[k] = beta1 * ms[k] + (1 - beta1) * grads[k]
                 vs[k] = beta2 * vs[k] + (1 - beta2) * grads[k]**2
+                # Corregimos el sesgo 
                 m_hat = ms[k] / (1 - beta1**t)
                 v_hat = vs[k] / (1 - beta2**t)
+
+                # Ajustamos los pesos teniendo en cuenta los momentos, de manera que los que reciben
+                # un gradiente grande aprenden menos y viceversa
                 thetas[k] -= alpha * m_hat / (np.sqrt(v_hat) + eps)
 
             iter_loss += J
@@ -163,11 +179,14 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
 
         J_history.append(iter_loss / n_batches)
 
+        # Calculamos la funcion de coste para el split de valicacion (hemos metido directamente test)
+        # de esta manera podemos ver en que punto el modelo empieza a sobreajustarse
         if X_val is not None:
             h_val, _ = forward_propagation(thetas, X_val)
             J_val    = cost(thetas, h_val, y_val, lambda_, class_weights)
             J_val_history.append(float(J_val))
 
+        # Imprimimos el progreso cada 10 episodios
         if (i + 1) % 10 == 0:
             val_str = f"  val_loss={J_val_history[-1]:.4f}" if J_val_history else ""
             print(f"iter {i+1}/{num_iters}  loss={J_history[-1]:.4f}{val_str}")

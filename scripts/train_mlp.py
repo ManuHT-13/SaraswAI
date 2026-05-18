@@ -149,7 +149,13 @@ def main():
 
     # Inicializamos todos los pesos 
     thetas_ini = init_weights(LAYER_SIZES)
-    print(f"arquitectura: {' -> '.join(map(str, LAYER_SIZES))}")
+    
+    arquitectura = ""
+    for i, size in enumerate(LAYER_SIZES):
+        arquitectura += str(size)
+        if i < len(LAYER_SIZES) - 1:
+            arquitectura += " -> "
+    print("arquitectura: " + arquitectura)
 
     # Inicializamos los pesos de cada clase para compensar la distribuicion de clases
     class_weights = compute_class_weights(y_train_raw, n_classes)
