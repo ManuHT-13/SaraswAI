@@ -1,70 +1,109 @@
 """
 Red neuronal MLP implementada en NumPy/CuPy para clasificar instrumentos musicales
 a partir de vectores de features extraidos con CNN14
+
+* Uso Cupy con Cuda 12.6 porque corre en GPU y asi hago el entreno mas rapido
+
 """
 
 import copy
 import cupy as np
 
 
+RANDOM_SEED = 429
+
+
 def relu(z):
+    """
+    Como funcion de activacion he decidido usar ReLu en lugar de Sigmoid por
+    la alta dimensionalidad de los vectores de featurings y su gran magnitud
+    """
     return np.maximum(0, z)
 
 def relu_derivative(z):
+    """
+    Derivada de la funcion de activacion
+    """
     return (z > 0).astype(float)
 
 def softmax(z):
-    # Restamos el maximo por estabilidad numerica
+    """
+    Funcion de activacion de la capa de salida normalizando las
+    salidas como probabilidades que suman 1
+    """
+    # Restamos el maximo para estabilidad numerica porque si no da problemas
     z_stable = z - np.max(z, axis=1, keepdims=True)
     exp_z    = np.exp(z_stable)
     return exp_z / np.sum(exp_z, axis=1, keepdims=True)
 
 
-def init_weights(layer_sizes, seed=42):
+def init_weights(layer_sizes, seed=RANDOM_SEED):
+    """
+    Inializacion de pesos con una distribucion uniforme entre -1 y 1
+    """
     np.random.seed(seed)
     thetas = []
     for i in range(len(layer_sizes) - 1):
         fan_in  = layer_sizes[i]
         fan_out = layer_sizes[i + 1]
-        W = np.random.randn(fan_out, fan_in + 1) * np.sqrt(1.0 / fan_in)
+        W = np.random.uniform(-1, 1, (fan_out, fan_in + 1))
         thetas.append(W)
     return thetas
 
 
 def forward_propagation(thetas, X):
-    m     = X.shape[0]
-    cache = []
+    """
+    Propagacion hacia adelante calculando la salida de cada capa y guardando
+    en bp_ret la a_bias y salida de cada capa para pasarsela a la propagacion
+    hacia atras despues
+    """
+    m = X.shape[0]
+    bp_ret = []
     a = X
     for i, theta in enumerate(thetas):
+        # Columna de unos para la bias
         a_bias = np.hstack([np.ones((m, 1)), a])
         z      = a_bias @ theta.T
-        cache.append((a_bias, z))
+        bp_ret.append((a_bias, z))
         if i == len(thetas) - 1:
             a = softmax(z)
         else:
             a = relu(z)
-    return a, cache
+    return a, bp_ret
 
 
 def cost(thetas, h, y, lambda_, class_weights=None):
+    """
+    Calculamos la funcion de coste actual con regularizacion y opcionalmente
+    pesos de cada clase penalizando mas los errores en clase minoritarias
+    para compensar el desbalanceo del dataset
+    """
     m = y.shape[0]
     h = np.clip(h, 1e-12, 1 - 1e-12)
+
     if class_weights is not None:
         weights = np.sum(y * class_weights, axis=1, keepdims=True)
         J = -(1 / m) * np.sum(weights * np.sum(y * np.log(h), axis=1, keepdims=True))
     else:
         J = -(1 / m) * np.sum(y * np.log(h))
+
     reg = sum(np.sum(theta[:, 1:] ** 2) for theta in thetas)
     J  += (lambda_ / (2 * m)) * reg
     return J
 
 
 def backprop(thetas, X, y, lambda_, class_weights=None):
+    """
+    Calculamos el gradiente de la funcion de coste respecto a cada peso mediante
+    propagacion hacia atras. Primero hacemos forward para obtener las predicciones y activaciones de cada capa,
+    luego propagamos el error hacia atras capa a capa
+    """
     m = X.shape[0]
     h, cache = forward_propagation(thetas, X)
     J        = cost(thetas, h, y, lambda_, class_weights)
     grads    = [None] * len(thetas)
 
+    # Si tenemos la opcion de pesos por clase avanzamos mas por las clases minoritarias
     if class_weights is not None:
         weights = np.sum(y * class_weights, axis=1, keepdims=True)
         delta   = weights * (h - y)
@@ -84,6 +123,10 @@ def backprop(thetas, X, y, lambda_, class_weights=None):
 
 
 def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_weights=None, X_val=None, y_val=None):
+    """
+    Entrenamos la red con el metodo por batches que vimos en la practica 5
+    y ademas un Adam muy simple para ir adaptando alpha y converger mas rapidamente
+    """
     thetas = copy.deepcopy(thetas_ini)
     m      = X.shape[0]
 
@@ -132,5 +175,9 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
     return thetas, J_history, J_val_history
 
 def predict(thetas, X):
+    """
+    Devuelve la clase predicha para cada muestra como el indice de mayor
+    probabilidad en la salida del softmax
+    """
     h, _ = forward_propagation(thetas, X)
     return np.argmax(h, axis=1)

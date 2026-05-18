@@ -5,10 +5,10 @@ Exploramos el dataset en formato tensorflow recursivamente para conocer bien los
 import tensorflow as tf
 from pathlib import Path
 
-PATH_DATASET = Path(__file__).parent.parent / "dataset" / "train_ds"
+DATASET_PATH = Path(__file__).parent.parent / "dataset" / "train_ds"
 
 # Cargamos el dataset guardado en disco porque anteriormente habia sido guardado con experimental.save
-data = tf.data.Dataset.load(str(PATH_DATASET))
+data = tf.data.Dataset.load(str(DATASET_PATH))
 
 
 # Funcion recursiva para leer el dataset de tensor flow
