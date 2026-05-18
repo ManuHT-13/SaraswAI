@@ -1,10 +1,10 @@
-import sys
-sys.path.insert(0, "./panns")
-
+"""
+Embedder para extraer las features de los espectrogramas de Mel usando la capa convolucional de CNN14
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models import Cnn14_16k
+from panns.models import Cnn14_16k
 
 # Parametros para el embedder, tenemos que ponerle los mismos parametros con los que hemos creado los espectrogramas
 SR         = 16000      # Sample rate (frecuencia de muestreo)

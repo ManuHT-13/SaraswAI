@@ -10,12 +10,16 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import torch
 from pathlib import Path
 
-ckpt_path  = Path("./checkpoints/Cnn14_16k_mAP=0.438.pth")
-checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+def run():
+    ckpt_path  = Path("./checkpoints/Cnn14_16k_mAP=0.438.pth")
+    checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
 
-state_dict = checkpoint["model"]
+    state_dict = checkpoint["model"]
 
-# Mostramos las claves y shapes de los pesos del checkpoint
-print(f"Total de claves: {len(state_dict)}\n")
-for k, v in state_dict.items():
-    print(f"  {k:60s}  {list(v.shape)}")
+    # Mostramos las claves y shapes de los pesos del checkpoint
+    print(f"Total de claves: {len(state_dict)}\n")
+    for k, v in state_dict.items():
+        print(f"  {k:60s}  {list(v.shape)}")
+
+if __name__ == "__main__":
+    run()

@@ -6,11 +6,6 @@ de 2048 dimensiones y los guarda listos para entrenar la MLP
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-# Importamos los archivos del repositorio de Panns
-import sys
-sys.path.insert(0, "./panns")
-sys.path.insert(0, "./models")
-
 import argparse
 from pathlib import Path
 
@@ -20,7 +15,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from embedder import Cnn14Embedder
+from models.embedder import Cnn14Embedder
 
 
 # Tenemos que crear un wrapper que extienda Dataset para cargar los datos en pytorch de forma natural
@@ -91,7 +86,7 @@ def extract_features_split(model, csv_path, out_emb, out_labels, mel_mean, mel_s
     print(f"{out_emb.name}: {embeddings.shape}")
 
 
-def main():
+def run():
     parser = argparse.ArgumentParser()
     # Argumento para el tamanyo del batch
     parser.add_argument("--batch_size", type=int, default=128)
@@ -124,4 +119,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()

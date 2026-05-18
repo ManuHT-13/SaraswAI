@@ -1,0 +1,8 @@
+numpy
+matplotlib
+scikit-learn
+tensorflow
+torch
+torchaudio
+tqdm
+cupy-cuda12x

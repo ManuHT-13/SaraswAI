@@ -1,22 +1,29 @@
 """
 Carga los embeddings extraidos con CNN14, entrena la MLP y guarda los pesos
 resultantes del training
+
+* Uso opcional de GPU con Cupy, si se activa aqui tambien se debe de activar en mlp.py
 """
 
-# Nuestras funciones de la MLP deberan recibir arrays de Cupy
-import cupy as np
-# Mientras que otras funciones como las de matplotlib esperan arrays de Numpy normales
-import numpy
+USES_GPU = True
+
+import numpy as np_cpu
+
+if USES_GPU:
+    # Nuestras funciones de la MLP deberan recibir arrays de Cupy
+    # Mientras que otras funciones como las de matplotlib esperan arrays de Numpy normales
+    import cupy as xp
+    xp.cuda.Device(0).use()
+else:
+    import numpy as xp
 
 import matplotlib.pyplot as plt
-import sys
-sys.path.insert(0, "./models")
-from mlp import init_weights, training, predict
+from models.mlp import init_weights, training, predict
 
-FEATURES_PATH = "./dataset/features"
-WEIGHTS_PATH = "./checkpoints/thetas_mlp.npz"
-STATS_PATH   = "./checkpoints/embedding_stats.npy"
-LABEL_MAP    = "./checkpoints/label_map.npy"
+FEATURES_PATH   = "./dataset/features"
+WEIGHTS_PATH    = "./checkpoints/thetas_mlp.npz"
+STATS_PATH      = "./checkpoints/embedding_stats.npy"
+LABEL_MAP       = "./checkpoints/label_map.npy"
 
 # Arquitectura
 LAYER_SIZES = [2048, 256, 10]
@@ -25,9 +32,18 @@ LAYER_SIZES = [2048, 256, 10]
 ALPHA       = 0.001
 LAMBDA      = 0.0001
 BATCH_SIZE  = 256
-NUM_ITERS   = 80
+NUM_ITERS   = 120
 
 INSTRUMENT_LABELS = {0: "bass", 1: "brass", 2: "flute", 3: "guitar", 4: "keyboard", 5: "mallet", 6: "organ", 7: "reed", 8: "string", 9: "synth_lead", 10: "vocal"}
+
+
+def to_numpy(x):
+    """
+    Para resolver las diferencias entre Cupy y Numpy,
+    siempre que se necesite un array estrictamente de Numpy se pasa
+    por esta funcion
+    """
+    return x.get() if USES_GPU and hasattr(x, "get") else np_cpu.asarray(x)
 
 
 def load_data():
@@ -35,19 +51,20 @@ def load_data():
     Cargamos ambos splits como arrays de Cupy pero mapeando
     los index con Numpy manualmente para las labels
     """
-    X_train     = np.load(f"{FEATURES_PATH}/train_embeddings.npy")
-    X_test      = np.load(f"{FEATURES_PATH}/test_embeddings.npy")
-    y_train_raw = np.load(f"{FEATURES_PATH}/train_labels.npy")
-    y_test_raw  = np.load(f"{FEATURES_PATH}/test_labels.npy")
+    X_train = xp.load(f"{FEATURES_PATH}/train_embeddings.npy")
+    X_test = xp.load(f"{FEATURES_PATH}/test_embeddings.npy")
+    y_train_raw = np_cpu.load(f"{FEATURES_PATH}/train_labels.npy")
+    y_test_raw = np_cpu.load(f"{FEATURES_PATH}/test_labels.npy")
 
-    y_train_raw = y_train_raw.get() if hasattr(y_train_raw, "get") else y_train_raw
-    y_test_raw  = y_test_raw.get()  if hasattr(y_test_raw,  "get") else y_test_raw
+   
+    y_train_raw = to_numpy(y_train_raw)
+    y_test_raw = to_numpy(y_test_raw)
 
     # Mapeamos las labels
-    clases      = numpy.unique(y_train_raw)
-    mapa        = {int(c): i for i, c in enumerate(clases)}
-    y_train_raw = numpy.array([mapa[int(c)] for c in y_train_raw])
-    y_test_raw  = numpy.array([mapa[int(c)] for c in y_test_raw])
+    clases = np_cpu.unique(y_train_raw)
+    mapa = {int(c): i for i, c in enumerate(clases)}
+    y_train_raw = np_cpu.array([mapa[int(c)] for c in y_train_raw])
+    y_test_raw = np_cpu.array([mapa[int(c)] for c in y_test_raw])
 
     return X_train, X_test, y_train_raw, y_test_raw, clases
 
@@ -58,7 +75,7 @@ def compute_class_weights(y_raw, n_classes):
     a la cantidad de muestras que tenga dicha clase para compensar
     la distribuicion del dataset
     """
-    counts = numpy.bincount(y_raw, minlength=n_classes).astype(float)
+    counts = np_cpu.bincount(y_raw, minlength=n_classes).astype(float)
     weights = 1.0 / counts
     weights = weights / weights.sum() * n_classes
     return weights
@@ -70,13 +87,13 @@ def normalize(X_train, X_test):
     la media y la desviacion estandar comoa arrays de Numpy
     """
     mean = X_train.mean(axis=0)
-    std  = X_train.std(axis=0) + 1e-8
+    std = X_train.std(axis=0) + 1e-8
     X_train = (X_train - mean) / std
-    X_test  = (X_test  - mean) / std
+    X_test = (X_test  - mean) / std
 
     mean_np = mean.get() if hasattr(mean, "get") else mean
-    std_np  = std.get()  if hasattr(std,  "get") else std
-    numpy.save(STATS_PATH, numpy.array([mean_np, std_np]))
+    std_np = std.get()  if hasattr(std,  "get") else std
+    np_cpu.save(STATS_PATH, np_cpu.array([mean_np, std_np]))
 
     return X_train, X_test
 
@@ -89,11 +106,11 @@ def plot_results(J_history, J_val_history, y_true, y_pred, n_classes, label_name
     """
 
     # Convertimos los historiales de la funcion de perdida en arrays de Numpy normales
-    J_plot     = numpy.array([float(j) for j in J_history])
-    J_val_plot = numpy.array([float(j) for j in J_val_history])
+    J_plot = np_cpu.array([float(j) for j in J_history])
+    J_val_plot = np_cpu.array([float(j) for j in J_val_history])
 
     plt.figure(figsize=(8, 4))
-    plt.plot(J_plot,     label="train")
+    plt.plot(J_plot, label="train")
     plt.plot(J_val_plot, label="test")
     plt.xlabel("iter")
     plt.ylabel("loss")
@@ -103,7 +120,7 @@ def plot_results(J_history, J_val_history, y_true, y_pred, n_classes, label_name
     plt.show()
 
     # Realizamos la matriz de confusion
-    conf = numpy.zeros((n_classes, n_classes), dtype=int)
+    conf = np_cpu.zeros((n_classes, n_classes), dtype=int)
     for t, p in zip(y_true, y_pred):
         conf[t, p] += 1
 
@@ -128,13 +145,13 @@ def plot_results(J_history, J_val_history, y_true, y_pred, n_classes, label_name
     # Imprimimos la precision que hemos obtenido en cada clase
     print("\naccuracy por clase:")
     for i in range(n_classes):
-        total   = conf[i].sum()
+        total = conf[i].sum()
         correct = conf[i, i]
-        acc     = correct / total * 100 if total > 0 else 0
+        acc = correct / total * 100 if total > 0 else 0
         print(f"  {label_names[i]:<12} {correct:>4}/{total:<4} ({acc:.1f}%)")
 
 
-def main():
+def run():
     # Cargamos los splits
     X_train, X_test, y_train_raw, y_test_raw, clases = load_data()
     print(f"train: {X_train.shape}  test: {X_test.shape}  clases: {len(clases)}")
@@ -144,8 +161,8 @@ def main():
 
     # Codeamos los vectores de label con one-hot encoding
     n_classes = len(clases)
-    y_train   = np.eye(n_classes)[y_train_raw]
-    y_test    = np.eye(n_classes)[y_test_raw]
+    y_train = xp.eye(n_classes)[y_train_raw]
+    y_test = xp.eye(n_classes)[y_test_raw]
 
     # Inicializamos todos los pesos 
     thetas_ini = init_weights(LAYER_SIZES)
@@ -159,7 +176,7 @@ def main():
 
     # Inicializamos los pesos de cada clase para compensar la distribuicion de clases
     class_weights = compute_class_weights(y_train_raw, n_classes)
-    class_weights = np.array(class_weights)
+    class_weights = xp.array(class_weights)
 
     # Entrenamos el modelo pasando tambien (X_test, y_test) para ver la perdida de validacion
     thetas, J_history, J_val_history = training(
@@ -175,27 +192,27 @@ def main():
 
     # Realizamos la evaluacion e imprimimos resultados
     y_pred_train = predict(thetas, X_train)
-    y_pred_test  = predict(thetas, X_test)
+    y_pred_test = predict(thetas, X_test)
 
-    y_train_cp = np.array(y_train_raw)
-    y_test_cp  = np.array(y_test_raw)
+    y_train_cp = xp.array(y_train_raw)
+    y_test_cp = xp.array(y_test_raw)
 
-    acc_train = float(np.mean(y_pred_train == y_train_cp) * 100)
-    acc_test  = float(np.mean(y_pred_test  == y_test_cp)  * 100)
+    acc_train = float(xp.mean(y_pred_train == y_train_cp) * 100)
+    acc_test = float(xp.mean(y_pred_test  == y_test_cp)  * 100)
     print(f"accuracy train: {acc_train:.2f}%")
     print(f"accuracy test:  {acc_test:.2f}%")
 
     # Guardamos los pesos del modelo
-    numpy.savez(WEIGHTS_PATH, *[t.get() for t in thetas])
-    numpy.save(LABEL_MAP, clases)
+    np_cpu.savez(WEIGHTS_PATH, *[to_numpy(t) for t in thetas])
+    np_cpu.save(LABEL_MAP, clases)
 
     # Pasamos a array de Numpy los arrays de labels e imprimimos resultados de evaluacion
-    y_true_np = numpy.array(y_test_cp.get() if hasattr(y_test_cp, "get") else y_test_cp)
-    y_pred_np = numpy.array(y_pred_test.get() if hasattr(y_pred_test, "get") else y_pred_test)
+    y_true_np = to_numpy(y_test_raw)
+    y_pred_np = to_numpy(y_pred_test)
 
     label_names = {i: INSTRUMENT_LABELS[k] for i, k in enumerate(clases)}
     plot_results(J_history, J_val_history, y_true_np, y_pred_np, n_classes, label_names)
 
 
 if __name__ == "__main__":
-    main()
+    run()

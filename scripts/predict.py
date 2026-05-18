@@ -6,17 +6,15 @@ Predice la familia de instrumento de un archivo de audio
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-import sys
-sys.path.insert(0, "./models")
-
 import argparse
 from pathlib import Path
 
+import sys
 import numpy as np
 import torch
 import librosa
 
-from embedder import Cnn14Embedder
+from models.embedder import Cnn14Embedder
 
 # Parametros para el espectrograma de Mel
 SR         = 16000      # Sample rate (frecuencia de muestreo)
@@ -146,7 +144,8 @@ def main():
     args = parser.parse_args()
 
     if not Path(args.audio).exists():
-        sys.exit(f"[error] No se encuentra el archivo: {args.audio}")
+        print(f"[error] No se encuentra el archivo: {args.audio}")
+        sys.exit()
 
     predict(args.audio)
 

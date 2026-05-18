@@ -12,6 +12,7 @@ from collections import Counter
 import tensorflow as tf
 import numpy as np
 import librosa
+import matplotlib.pyplot as plt
 
 # Parametros para el espectrograma de Mel
 SR         = 16000      # Sample rate (frecuencia de muestreo)
@@ -82,8 +83,7 @@ def process_split(data_dir, out_dir, split, max_samples=None):
         out_path = out_split_dir / f"{sample_id}.npy"
 
         # Guardamos el vector de valores del espectrograma
-        if not out_path.exists():
-            np.save(out_path, audio_to_spectogram(audio))
+        np.save(out_path, audio_to_spectogram(audio))
 
         # Guardamos la fila con todas las columnas
         rows.append([sample_id, family_id, family_name, source_id, instrument_id, pitch, velocity, str(out_path)])
@@ -102,8 +102,23 @@ def process_split(data_dir, out_dir, split, max_samples=None):
     for name, cnt in fam_counts.items():
         print(f"  {name}: {cnt} ({cnt/total*100:.1f}%)")
 
+    # Mostramos las distribucion de clases
+    classes = list(fam_counts.keys())
+    counts  = list(fam_counts.values())
 
-def main():
+    plt.figure(figsize=(10, 4))
+    plt.bar(classes, counts)
+    plt.title(f"Distribución de clases - {split}")
+    plt.xlabel("Clase")
+    plt.ylabel("Número de muestras")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+
+    plt.savefig(out_dir / f"{split}_class_distribution.png", dpi=150)
+    plt.show()
+
+
+def run():
     parser = argparse.ArgumentParser()
 
     # Argumento de muestras maximas para hacer pruebas
@@ -120,10 +135,11 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for split in ["train", "test"]:
+        print(f"Procesando {split}...\n")
         process_split(data_dir, out_dir, split, args.max)
 
     print("Preprocesado completado")
 
 
 if __name__ == "__main__":
-    main()
+    run()
