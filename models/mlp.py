@@ -185,12 +185,7 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
         X_s, y_s = X[idx], y[idx]
         iter_loss = 0.0
         n_batches = 0
-
-        # Precalculamos el bias correction una vez por epoch, no por batch
-        bc1 = 1 - beta1 ** t
-        bc2 = 1 - beta2 ** t
  
-
         for start in range(0, m, batch_size):
             X_batch = X_s[start : start + batch_size]
             y_batch = y_s[start : start + batch_size]

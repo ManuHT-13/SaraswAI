@@ -92,11 +92,11 @@ def predict(audio_path):
     data = np.load(THETAS_PATH)
     thetas = [data[k] for k in sorted(data.files)]
 
-    # Cargamos el mapa de etiquetas de tu MLP (que va de 0 a 8 por el remapeo denso)
+    # Cargamos el mapa de etiquetas
     label_map = np.load(LABEL_MAP).flatten()
     idx_to_name = {i: INSTRUMENT_LABELS[int(c)] for i, c in enumerate(label_map)}
 
-    # CORRECCIÓN: Cargar estadísticas como escalares float32 estables
+    # Cargamos los stats de normalizacion de los espectrogramas de mel
     mel_stats = np.load(MEL_STATS)
     mel_mean, mel_std = float(mel_stats[0]), float(mel_stats[1])
     
@@ -137,7 +137,7 @@ def predict(audio_path):
         # Normalizamos el vector de características devuelto
         emb_n = (emb - emb_mean) / (emb_std + 1e-8)
 
-        # Inferencia en la MLP basada en NumPy
+        # Inferimos las clases que predice el mlp
         all_probs.append(mlp_forward(thetas, emb_n))
 
     mean_probs = np.mean(all_probs, axis=0)
