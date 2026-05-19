@@ -1,4 +1,4 @@
-# SaraswAI – Instrument Classification with Transfered Learning
+# SaraswAI – Instrument Classification con Transfer Learning
 
 Este proyecto clasifica familias de instrumentos musicales a partir de audio utilizando:
 
