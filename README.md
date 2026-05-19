@@ -1,25 +1,87 @@
-Link del dataset usado: https://www.kaggle.com/datasets/dmytrotiapukhin/nsynth-small
-Poner en la carpeta dataset, que quede así:
-    dataset
-        test_ds
-            9554115882362711283
-            dataset_spec.pb
-            snapshot.metadata
-        train_ds
-            1859930310722468987
-            dataset_spec.pb
-            snapshot.metadata
+# SaraswAI – Instrument Classification with CNN14 + MLP
 
-Invocar desde la raíz el punto de entrada como: python -m main.main
+Este proyecto clasifica familias de instrumentos musicales a partir de audio utilizando:
 
-Puedes descargar las dependencias con pip install requirements.txt
-Cupy no es obligatorio instalarlo si no vas a usar GPU para entrenar el MLP.
+- Espectrogramas Mel
+- CNN14 (PANNs) como extractor de features
+- MLP implementada en NumPy/CuPy como clasificador final
 
-Existe la opción de usar GPU para entrenar el MLP, poniendo USES_GPU a True en train_mlp.py y en mlp.py, lo que provoca que se use Cupy en lugar de Numpy.
-Cuidado porque Cupy se rompe si se usa train_mlp después de haber hecho otra accion que también pueda usar GPU.
-Lo mejor, si se quiere usar GPU, es entrenar el MLP invocando el script individual con python -m scripts.train_ml
-Cupy y Numpy no tienen exactamente la misma implementación de uniform así que se pueden esperar resultados distintos usando GPU o CPU.
+---
 
-Siempre invocar los scripts como módulos desde la raíz.
+# Dataset
 
-Se puede probar a usar el script de predicción: python -m scripts.predict mi_audio.wav/mp3
+Se utiliza el dataset:
+
+https://www.kaggle.com/datasets/dmytrotiapukhin/nsynth-small
+
+Debe colocarse en la raíz del proyecto con la siguiente estructura:
+
+dataset/
+    test_ds/
+        9554115882362711283/
+        dataset_spec.pb
+        snapshot.metadata
+
+    train_ds/
+        1859930310722468987/
+        dataset_spec.pb
+        snapshot.metadata
+
+---
+
+# Embedder
+
+Para extraer los embeddings de los espectrogramas de Mel he usado las capas convolucionales del PANN CNN14.
+Para el funcionamiento del modelo es necesario poner el checkpoint del Cnn14_16khz en checkpoints/
+
+Puedes descargarlo desde aquí:
+
+https://zenodo.org/records/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1
+
+---
+
+# Instalación
+
+Instalar dependencias:
+
+pip install -r requirements.txt
+
+CuPy es opcional y solo necesario si se quiere usar GPU para el entrenamiento del MLP.
+
+---
+
+# Uso
+
+Como punto de entrada principal está python -m main.main en el que puedes ejecutar todas las acciones necesarias sobre los modelos.
+Todos los scripts deben ejecutarse como módulos desde la raíz del proyecto.
+Se permite usar los vectores de embeddings con todas las dimensiones (2048) desactivando USE_FILTERED en:
+
+- cross_validation.py
+- train_mlp.py
+
+---
+
+# Uso de GPU (CuPy)
+
+Se puede activar el uso de GPU modificando:
+
+USES_GPU = True
+
+en los archivos:
+
+- mlp.py
+- train_mlp.py
+- cross_validation.py
+
+Advertencias:
+
+- CuPy y NumPy no son completamente compatibles en comportamiento aleatorio así que los resultados pueden variar
+- Si se usa GPU, se recomienda ejecutar únicamente el script de entrenamiento del MLP de forma aislada
+
+---
+
+# Scripts extra
+- python -m scripts.visualize_spectrogram <instrument_class o archivo_de_audio> -> Visualizar el espectrograma normalizado de un elemento aleatorio de una clase concreta o de un archivo de audio
+- python -m scripts.predict <archivo_de_audio> -> Predicción del modelo de MLP sobre un archivo de audio
+
+---
