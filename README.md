@@ -1,4 +1,4 @@
-# SaraswAI – Instrument Classification with CNN14 + MLP
+# SaraswAI – Instrument Classification with Transfered Learning
 
 Este proyecto clasifica familias de instrumentos musicales a partir de audio utilizando:
 
@@ -16,7 +16,9 @@ https://www.kaggle.com/datasets/dmytrotiapukhin/nsynth-small
 
 Debe colocarse en la raíz del proyecto con la siguiente estructura:
 
+
 dataset/
+
     test_ds/
         9554115882362711283/
         dataset_spec.pb
