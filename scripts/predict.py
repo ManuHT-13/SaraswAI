@@ -1,14 +1,13 @@
 """
 Predice la familia de instrumento de un archivo de audio
+
 """
 
-# Para que no de error importar pytorch
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import argparse
 from pathlib import Path
-
 import sys
 import numpy as np
 import torch
@@ -25,28 +24,34 @@ F_MIN      = 50.0       # Frecuencia minima del espetrograma
 F_MAX      = 8000.0     # Frecuencia maxima del espectrograma
 DURATION   = 4.0        # Duracion de los audios de nsynth
 
+# Mapeo oficial de nombres (Mantenlo igual para mostrar el resultado al usuario)
 INSTRUMENT_LABELS = {0: "bass", 1: "brass", 2: "flute", 3: "guitar", 4: "keyboard", 5: "mallet", 6: "organ", 7: "reed", 8: "string", 9: "synth_lead", 10: "vocal"}
 
-CNN14_CHECKPOINT   = "./checkpoints/Cnn14_16k_mAP=0.438.pth"
-THETAS_PATH  = "./checkpoints/thetas_mlp.npz"
-LABEL_MAP    = "./checkpoints/label_map.npy"
-MEL_STATS    = "./dataset/features/mel_stats.npy"
-EMB_STATS    = "./checkpoints/embedding_stats.npy"
+CNN14_CHECKPOINT = "./checkpoints/Cnn14_16k_mAP=0.438.pth"
+THETAS_PATH      = "./checkpoints/thetas_mlp.npz"
+LABEL_MAP        = "./checkpoints/label_map.npy"
+EMB_STATS        = "./checkpoints/embedding_stats.npy"
+ACTIVE_DIMS_MASK = "./checkpoints/active_dims_mask.npy"
+MEL_STATS        = './dataset/features/mel_stats.npy'
+
 
 
 def relu(z):
     """
-    Funcion de activacion reLu igual que la de la MLP
+    Como funcion de activacion he decidido usar ReLu en lugar de Sigmoid por
+    la alta dimensionalidad de los vectores de featurings y su gran magnitud
     """
     return np.maximum(0, z)
 
 def softmax(z):
     """
-    Funcion de activacion final softmax igual que la de la MLP
+    Funcion de activacion de la capa de salida normalizando las
+    salidas como probabilidades que suman 1
     """
-    z = z - np.max(z)
-    e = np.exp(z)
-    return e / e.sum()
+    # Restamos el maximo para estabilidad numerica porque si no da problemas
+    z_stable = z - np.max(z)
+    exp_z = np.exp(z_stable)
+    return exp_z / np.sum(exp_z)
 
 def mlp_forward(thetas, x):
     """
@@ -87,16 +92,20 @@ def predict(audio_path):
     data = np.load(THETAS_PATH)
     thetas = [data[k] for k in sorted(data.files)]
 
-    # Cargamos las etiquetas con sus ids 
+    # Cargamos el mapa de etiquetas de tu MLP (que va de 0 a 8 por el remapeo denso)
     label_map = np.load(LABEL_MAP).flatten()
     idx_to_name = {i: INSTRUMENT_LABELS[int(c)] for i, c in enumerate(label_map)}
 
-    # Cargamos los parametros de regularizacion 
-    mel_mean, mel_std = np.load(MEL_STATS)
-    emb_stats = np.load(EMB_STATS)
+    # CORRECCIÓN: Cargar estadísticas como escalares float32 estables
+    mel_stats = np.load(MEL_STATS)
+    mel_mean, mel_std = float(mel_stats[0]), float(mel_stats[1])
+    
+    emb_stats = np.load(EMB_STATS).astype(np.float32)
     emb_mean, emb_std = emb_stats[0], emb_stats[1]
 
-    # Cargamos el audio
+    mask = np.load(ACTIVE_DIMS_MASK) if Path(ACTIVE_DIMS_MASK).exists() else None
+
+    # Cargamos el audio objetivo
     audio, _ = librosa.load(audio_path, sr=SR, mono=True)
 
     # Dividimos el audio en ventanas para poder procesar audios de mas de 4s
@@ -108,26 +117,29 @@ def predict(audio_path):
     all_probs = []
     for start in starts:
         segment = audio[start : start + target_len]
+
         # Si el segmento es mas corto que target_len lo rellenamos con ceros
         if len(segment) < target_len:
             segment = np.pad(segment, (0, target_len - len(segment)))
 
         # Convertimos a mel y lo normalizamos
         log_mel = audio_to_mel(segment)
-        log_mel = ((log_mel - mel_mean) / (mel_std + 1e-6)).astype(np.float32)
-
-        # Extraemos el vector de features
-        tensor = torch.from_numpy(log_mel).unsqueeze(0).unsqueeze(0)
+        log_mel = (log_mel - mel_mean) / (mel_std + 1e-6)
+        
+        tensor = torch.from_numpy(log_mel).unsqueeze(0).unsqueeze(0).float()
+        
         with torch.no_grad():
             emb = embedder(tensor.to(device)).cpu().numpy().squeeze()
 
-        # Normalizamos el vector
-        emb_n = (emb - emb_mean) / emb_std
+        if mask is not None:
+            emb = emb[mask]
 
-        # Lo metemos en la MLP para obtener las probabilidades
+        # Normalizamos el vector de características devuelto
+        emb_n = (emb - emb_mean) / (emb_std + 1e-8)
+
+        # Inferencia en la MLP basada en NumPy
         all_probs.append(mlp_forward(thetas, emb_n))
 
-    # Calculamos la media de entre todas las ventanas y damos un top 3
     mean_probs = np.mean(all_probs, axis=0)
     top3 = np.argsort(mean_probs)[::-1][:3]
 

@@ -9,3 +9,4 @@ dataset/features
 !dataset/features/.gitkeep
 models/Practica_5_Neural_Networks_Training
 checkpoints/Cnn14_16k_mAP=0.438.pth
+MEMORIA

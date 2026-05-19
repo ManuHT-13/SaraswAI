@@ -22,7 +22,7 @@ from models.embedder import Cnn14Embedder
 class MelDataset(Dataset):
     """
     Clase para cargar los datos de nuestro dataset a pytorch
-    IMPORTANTE: La normalizacion de z-score la he hecho directamente en el metodo de getitem
+    La normalizacion de z-score la hacemops directamente en el metodo de getitem
     """
     def __init__(self, csv_path, mel_mean, mel_std):
         self.df   = pd.read_csv(csv_path)
@@ -114,6 +114,7 @@ def run():
             continue
         extract_features_split(model, csv_path, out_dir / f"{split}_embeddings.npy", out_dir / f"{split}_labels.npy", mel_mean, mel_std, args.batch_size, device)
 
+    # Guardamos los valores de normalizacion de los espectrogramas para usarlos en predict
     np.save(out_dir / "mel_stats.npy", np.array([mel_mean, mel_std]))
     print("Features extraidas")
 

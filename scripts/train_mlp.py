@@ -3,9 +3,13 @@ Carga los embeddings extraidos con CNN14, entrena la MLP y guarda los pesos
 resultantes del training
 
 * Uso opcional de GPU con Cupy, si se activa aqui tambien se debe de activar en mlp.py
+* Uso opcional de embeddings filtrados (generados por filter_embeddings.py)
 """
 
-USES_GPU = True
+# Parametro de usar la GPU con Cupy
+USES_GPU     = False
+# Parametro de usar los embeddings filtrados por el script filter_embeddings
+USE_FILTERED = True
 
 import numpy as np_cpu
 
@@ -25,12 +29,12 @@ WEIGHTS_PATH    = "./checkpoints/thetas_mlp.npz"
 STATS_PATH      = "./checkpoints/embedding_stats.npy"
 LABEL_MAP       = "./checkpoints/label_map.npy"
 
-# Arquitectura
-LAYER_SIZES = [2048, 256, 10]
+# Arquitectura, la primera capa cogera la dimension de los embeddings directamente
+LAYER_SIZES = [2048, 256, 128, 10]
 
 # Hiperparametros
 ALPHA       = 0.001
-LAMBDA      = 0.0001
+LAMBDA      = 0.001
 BATCH_SIZE  = 256
 NUM_ITERS   = 120
 
@@ -49,10 +53,14 @@ def to_numpy(x):
 def load_data():
     """
     Cargamos ambos splits como arrays de Cupy pero mapeando
-    los index con Numpy manualmente para las labels
+    los index con Numpy manualmente para las labels.
+    Si USE_FILTERED es True cargamos los embeddings sin las dims muertas
+    generados por filter_embeddings.py
     """
-    X_train = xp.load(f"{FEATURES_PATH}/train_embeddings.npy")
-    X_test = xp.load(f"{FEATURES_PATH}/test_embeddings.npy")
+    suffix = "_filtered" if USE_FILTERED else ""
+
+    X_train = xp.load(f"{FEATURES_PATH}/train_embeddings{suffix}.npy")
+    X_test = xp.load(f"{FEATURES_PATH}/test_embeddings{suffix}.npy")
     y_train_raw = np_cpu.load(f"{FEATURES_PATH}/train_labels.npy")
     y_test_raw = np_cpu.load(f"{FEATURES_PATH}/test_labels.npy")
 
@@ -164,13 +172,14 @@ def run():
     y_train = xp.eye(n_classes)[y_train_raw]
     y_test = xp.eye(n_classes)[y_test_raw]
 
-    # Inicializamos todos los pesos 
-    thetas_ini = init_weights(LAYER_SIZES)
+    # Ajustamos la dimension de entrada segun los embeddings cargados e inicializamos los pesos
+    layer_sizes = [X_train.shape[1]] + LAYER_SIZES[1:]
+    thetas_ini = init_weights(layer_sizes)
     
     arquitectura = ""
-    for i, size in enumerate(LAYER_SIZES):
+    for i, size in enumerate(layer_sizes):
         arquitectura += str(size)
-        if i < len(LAYER_SIZES) - 1:
+        if i < len(layer_sizes) - 1:
             arquitectura += " -> "
     print("arquitectura: " + arquitectura)
 

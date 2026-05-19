@@ -1,12 +1,15 @@
 """
 Red neuronal MLP implementada en NumPy/CuPy
 
-* Uso Cupy con Cuda 12.6 porque corre en GPU y asi hago el entreno mas rapido, opcional.
-Si se activa aqui activar tambien en train_mlp
+* Uso Cupy porque corre en GPU y asi hago el entreno mas rapido, opcional.
+Si se activa aqui activar tambien en train_mlp y en cross_validation
 
 """
 
-USE_GPU = True
+USE_GPU = False
+
+# Parametro de dropout (porcentaje de neuronas aleatorias que apagamos en cada propagacion)
+DROPOUT_RATE = 0.3
 
 # Los importamos con ese nombre "Np" para que Cupy NUNCA colisione con otros imports numpy
 if USE_GPU:
@@ -46,23 +49,28 @@ def softmax(z):
 
 def init_weights(layer_sizes, seed=RANDOM_SEED):
     """
-    Inializacion de pesos con una distribucion uniforme entre -1 y 1
+    Inicializacion de pesos con He normal, adecuada para ReLU:
+    escala por sqrt(2/fan_in) para mantener la varianza estable
+    en redes profundas con activaciones ReLU
     """
     Np.random.seed(seed)
     thetas = []
     for i in range(len(layer_sizes) - 1):
-        fan_in = layer_sizes[i]
+        fan_in  = layer_sizes[i]
         fan_out = layer_sizes[i + 1]
-        W = Np.random.uniform(-1, 1, (fan_out, fan_in + 1))
+        std = Np.sqrt(2.0 / fan_in)
+        W = Np.random.randn(fan_out, fan_in + 1) * std
         thetas.append(W)
     return thetas
 
 
-def forward_propagation(thetas, X):
+def forward_propagation(thetas, X, training=False, dropout_rate=DROPOUT_RATE):
     """
     Propagacion hacia adelante calculando la salida de cada capa y guardando
-    en bp_ret la a_bias y salida de cada capa para pasarsela a la propagacion
-    hacia atras despues
+    en bp_ret la a_bias, salida z y mascara de dropout de cada capa para
+    pasarsela a la propagacion hacia atras despues. Si training esta a True entonces
+    aplicamos dropout apagando neuronas aleatorias de las capas ocultas para compensar
+    el sobreajuste
     """
     m = X.shape[0]
     bp_ret = []
@@ -71,11 +79,21 @@ def forward_propagation(thetas, X):
         # Columna de unos para la bias
         a_bias = Np.hstack([Np.ones((m, 1)), a])
         z = a_bias @ theta.T
-        bp_ret.append((a_bias, z))
-        if i == len(thetas) - 1:
+ 
+        is_last = (i == len(thetas) - 1)
+        if is_last:
             a = softmax(z)
+            mask = None
         else:
             a = relu(z)
+            # Aplicamos el dropout si estamos entrenando y guardamos la mascara con las neuronas desactivadas
+            if training and dropout_rate > 0.0:
+                mask = (Np.random.rand(*a.shape) > dropout_rate).astype(a.dtype)
+                a = a * mask / (1.0 - dropout_rate) 
+            else:
+                mask = None
+ 
+        bp_ret.append((a_bias, z, mask))
     return a, bp_ret
 
 
@@ -102,30 +120,34 @@ def cost(thetas, h, y, lambda_, class_weights=None):
 def backprop(thetas, X, y, lambda_, class_weights=None):
     """
     Calculamos el gradiente de la funcion de coste respecto a cada peso mediante
-    propagacion hacia atras. Primero hacemos forward para obtener las predicciones y activaciones de cada capa,
-    luego propagamos el error hacia atras capa a capa
+    propagacion hacia atras. Primero hacemos la prop. hacia delante y luego propagamos
+    el error hacia atras capa a capa respetando las mismas mascaras para
+    las neuronas desactivadas por el dropout
     """
     m = X.shape[0]
-    h, cache = forward_propagation(thetas, X)
+    h, cache = forward_propagation(thetas, X, training=True)
     J = cost(thetas, h, y, lambda_, class_weights)
     grads = [None] * len(thetas)
-
+ 
     # Si tenemos la opcion de pesos por clase avanzamos mas por las clases minoritarias
     if class_weights is not None:
         weights = Np.sum(y * class_weights, axis=1, keepdims=True)
         delta = weights * (h - y)
     else:
         delta = h - y
-
+ 
     for i in reversed(range(len(thetas))):
-        a_bias, z = cache[i]
+        a_bias, z, mask = cache[i]
         grad = (1 / m) * (delta.T @ a_bias)
         grad[:, 1:] += (lambda_ / m) * thetas[i][:, 1:]
         grads[i] = grad
         if i > 0:
-            _, z_prev = cache[i - 1]
+            _, z_prev, mask_prev = cache[i - 1]
             delta = (delta @ thetas[i][:, 1:]) * relu_derivative(z_prev)
-
+            # Propagamos el error solo por las neuronas que no fueron apagadas
+            if mask_prev is not None:
+                delta = delta * mask_prev / (1.0 - DROPOUT_RATE)
+ 
     return J, grads
 
 
@@ -154,6 +176,9 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
 
     # Para cada iteracion
     for i in range(num_iters):
+
+        t = i + 1
+
         # Mezclamos los valores en cada episodio para que el orden del dataset
         # no sea un factor en el aprendizaje
         idx = Np.random.permutation(m)
@@ -161,13 +186,17 @@ def training(X, y, thetas_ini, alpha, num_iters, lambda_, batch_size=256, class_
         iter_loss = 0.0
         n_batches = 0
 
+        # Precalculamos el bias correction una vez por epoch, no por batch
+        bc1 = 1 - beta1 ** t
+        bc2 = 1 - beta2 ** t
+ 
+
         for start in range(0, m, batch_size):
             X_batch = X_s[start : start + batch_size]
             y_batch = y_s[start : start + batch_size]
 
             # Calculamos funcion de coste, y gradientes para cada peso
             J, grads = backprop(thetas, X_batch, y_batch, lambda_, class_weights)
-            t += 1
 
             for k in range(len(thetas)):
                 # Calculamos los momentos para cada peso
