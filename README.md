@@ -42,6 +42,20 @@ https://zenodo.org/records/3987831/files/Cnn14_16k_mAP%3D0.438.pth?download=1
 
 ---
 
+# Dependencias
+
+El proyecto hace uso de las siguientes librerías:
+numpy -> Manejo de arrays y operaciones matemáticas, además de guardado de datos
+matplotlib -> Representación visual de los resultados
+scikit-learn -> Modelos de KNN y Regresión Logística además de otras herramientas como la confección de los folds en cross_validation
+tensorflow -> Carga del conjunto de datos 
+torch -> Embedder 
+torchaudio -> Utilidades del embedder
+tqdm -> Barras de carga en extracción de embeddings
+cupy-cuda12x -> Uso de GPU para entrenar el MLP (opcional)
+
+---
+
 # Instalación
 
 Instalar dependencias:
