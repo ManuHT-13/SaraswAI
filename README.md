@@ -52,6 +52,7 @@ tensorflow -> Carga del conjunto de datos
 torch -> Embedder 
 torchaudio -> Utilidades del embedder
 tqdm -> Barras de carga en extracción de embeddings
+librosa -> Procesado de audio para la creación de los espectrogramas
 cupy-cuda12x -> Uso de GPU para entrenar el MLP (opcional)
 
 ---
