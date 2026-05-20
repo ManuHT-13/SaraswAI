@@ -5,4 +5,5 @@ tensorflow
 torch
 torchaudio
 tqdm
+librosa
 cupy-cuda12x
