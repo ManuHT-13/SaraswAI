@@ -8,13 +8,23 @@ Este proyecto clasifica familias de instrumentos musicales a partir de audio uti
 
 ---
 
+# Uso
+
+Descargar el dataset (explicado en el apartado Dataset), el checkpoint del embedder (explicado en el apartado Embedder), instalar las dependencias (explicado en los apartados Dependencias e Instalación) y ejecutar el punto de entrada desde la raíz del proyecto con el comando:
+
+python -m main.main
+
+Una vez dentro del programa usar el comando 'all' para ejecutar el pipeline completo de seguido o ejecutar comando por comando para ver las fases del proyecto de forma aislada.
+
+---
+
 # Dataset
 
 Se utiliza el dataset:
 
 https://www.kaggle.com/datasets/dmytrotiapukhin/nsynth-small
 
-Debe colocarse en la raíz del proyecto con la siguiente estructura:
+Debe colocarse en la carpeta dataset de la raíz del proyecto con la siguiente estructura:
 
 
 dataset/
@@ -76,7 +86,7 @@ CuPy es opcional y solo necesario si se quiere usar GPU para el entrenamiento de
 
 ---
 
-# Uso
+# Ejecución
 
 Como punto de entrada principal está python -m main.main en el que puedes ejecutar todas las acciones necesarias sobre los modelos.
 Todos los scripts deben ejecutarse como módulos desde la raíz del proyecto.
