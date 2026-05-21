@@ -110,7 +110,8 @@ def plot_results(J_history, J_val_history, y_true, y_pred, n_classes, label_name
     """
     Dibujamos y guardamos los resultados de la evaluacion
     despues del entreno (evolucion de la funcion de perdida normal y de validacion,
-    matriz de confusion) e imprimimos la precision en cada clase
+    matriz de confusion) e imprimimos la precision en cada clase junto con
+    recall, F1-score y soporte
     """
 
     # Convertimos los historiales de la funcion de perdida en arrays de Numpy normales
@@ -150,13 +151,61 @@ def plot_results(J_history, J_val_history, y_true, y_pred, n_classes, label_name
     plt.savefig("./checkpoints/confusion_matrix.png", dpi=150)
     plt.show()
 
-    # Imprimimos la precision que hemos obtenido en cada clase
-    print("\naccuracy por clase:")
+    # Calculamos las metricas por clase 
+    TP = np_cpu.diag(conf).astype(float)
+    FP = (conf.sum(axis=0) - TP).astype(float)
+    FN = (conf.sum(axis=1) - TP).astype(float)
+    support = conf.sum(axis=1).astype(float)
+
+    precision_per_class = np_cpu.where(TP + FP > 0, TP / (TP + FP), 0.0)
+    recall_per_class    = np_cpu.where(TP + FN > 0, TP / (TP + FN), 0.0)
+    f1_per_class        = np_cpu.where(precision_per_class + recall_per_class > 0, 2 * precision_per_class * recall_per_class / (precision_per_class + recall_per_class), 0.0)
+
+    # Metricas globales
+    total_samples   = support.sum()
+    accuracy_global = TP.sum() / total_samples * 100
+
+    macro_precision = precision_per_class.mean()
+    macro_recall    = recall_per_class.mean()
+    macro_f1        = f1_per_class.mean()
+
+    weighted_precision = (precision_per_class * support).sum() / total_samples
+    weighted_recall    = (recall_per_class    * support).sum() / total_samples
+    weighted_f1        = (f1_per_class        * support).sum() / total_samples
+
+    # Mostramos los resultados
+    header = f"\n{'clase':<14} {'precision':>10} {'recall':>8} {'f1':>8} {'soporte':>9}"
+    print(header)
+    print("-" * len(header))
+
     for i in range(n_classes):
-        total = conf[i].sum()
-        correct = conf[i, i]
-        acc = correct / total * 100 if total > 0 else 0
-        print(f"  {label_names[i]:<12} {correct:>4}/{total:<4} ({acc:.1f}%)")
+        print(
+            f"  {label_names[i]:<12} "
+            f"{precision_per_class[i]:>10.3f} "
+            f"{recall_per_class[i]:>8.3f} "
+            f"{f1_per_class[i]:>8.3f} "
+            f"{int(support[i]):>9}"
+        )
+
+    print("-" * len(header))
+    print(
+        f"  {'accuracy':<12} {'':>10} {'':>8} {accuracy_global / 100:>8.3f} "
+        f"{int(total_samples):>9}"
+    )
+    print(
+        f"  {'macro avg':<12} "
+        f"{macro_precision:>10.3f} "
+        f"{macro_recall:>8.3f} "
+        f"{macro_f1:>8.3f} "
+        f"{int(total_samples):>9}"
+    )
+    print(
+        f"  {'weighted avg':<12} "
+        f"{weighted_precision:>10.3f} "
+        f"{weighted_recall:>8.3f} "
+        f"{weighted_f1:>8.3f} "
+        f"{int(total_samples):>9}"
+    )
 
 
 def run():
