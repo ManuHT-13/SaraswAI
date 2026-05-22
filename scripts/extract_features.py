@@ -65,25 +65,31 @@ def dataset_mean_std(csv_path):
 # Desactivamos el calculo de gradiente porque solo queremos inferir y extraer los features, no entrenar
 @torch.no_grad()
 def extract_features_split(model, csv_path, out_emb, out_labels, mel_mean, mel_std, batch_size, device):
-    """
-    Extraemos las features de uno de los splits (train o test)
-    """
     dataset = MelDataset(csv_path, mel_mean, mel_std)
     loader  = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    embeddings, labels_out = [], []
+    n_samples   = len(dataset)
+    emb_dim     = 2048
+
+    # Creamos los archivos en disco con el tamanyo final desde el principio escribiendo directamente sin cargar todo en ram
+    emb_mmap    = np.memmap(out_emb,    dtype=np.float32, mode="w+", shape=(n_samples, emb_dim))
+    labels_mmap = np.memmap(out_labels, dtype=np.int64,   mode="w+", shape=(n_samples,))
+
+    idx = 0
     for mels, labels in tqdm(loader, desc=csv_path.stem):
-        emb = model(mels.to(device))
-        embeddings.append(emb.cpu().numpy())
-        labels_out.append(labels.numpy())
+        emb   = model(mels.to(device)).cpu().numpy()
+        n     = emb.shape[0]
+        # Escribimos el batch en la posicion que le toque
+        emb_mmap   [idx : idx + n] = emb
+        labels_mmap[idx : idx + n] = labels.numpy()
+        idx += n
 
-    # Concatenamos todos los batches en un solo array y lo guardamos junto a las labels
-    embeddings = np.concatenate(embeddings, axis=0).astype(np.float32)
-    labels_out = np.concatenate(labels_out, axis=0).astype(np.int64)
-    np.save(out_emb, embeddings)
-    np.save(out_labels, labels_out)
+    # Forzamos escritura a disco y liberamos la memoria almacenada
+    emb_mmap.flush()
+    labels_mmap.flush()
+    del emb_mmap, labels_mmap
 
-    print(f"{out_emb.name}: {embeddings.shape}")
+    print(f"{out_emb.name}: ({n_samples}, {emb_dim})")
 
 
 def run():
