@@ -1,10 +1,14 @@
 # Uso
 
-Descargar el dataset (explicado en el apartado Dataset), el checkpoint del embedder (explicado en el apartado Embedder), instalar las dependencias (explicado en los apartados Dependencias e Instalación) y ejecutar el punto de entrada desde la raíz del proyecto con el comando:
+Descargar el dataset (explicado en el apartado Dataset), el checkpoint del embedder Cnn14_16k_mAP=0.438.pth (explicado en el apartado Embedder),
+instalar las dependencias (explicado en los apartados Dependencias e Instalación) y ejecutar el punto de entrada desde la raíz del proyecto con el comando:
 
 python -m main.main
 
-Una vez dentro del programa usar el comando 'all' para ejecutar el pipeline completo de seguido o ejecutar comando por comando para ver las fases del proyecto de forma aislada.
+Una vez dentro del programa usar el comando 'all' para ejecutar el pipeline completo de seguido
+o ejecutar comando por comando para ver las fases del proyecto de forma aislada. (desactivar USES_GPU antes si estuviera activo)
+
+Las imagenes producto de la ejecución del pipeline se encontrarán en checkpoints/ y en dataset/processed/
 
 ---
 
@@ -14,7 +18,7 @@ Se utiliza el dataset:
 
 https://www.kaggle.com/datasets/dmytrotiapukhin/nsynth-small
 
-Debe colocarse en la carpeta dataset de la raíz del proyecto con la siguiente estructura:
+Debe colocarse en la carpeta dataset/ de la raíz del proyecto, quedando la siguiente estructura:
 
 
 dataset/
@@ -34,9 +38,9 @@ dataset/
 # Embedder
 
 Para extraer los embeddings de los espectrogramas de Mel he usado las capas convolucionales del PANN CNN14.
-Para el funcionamiento del modelo es necesario poner el checkpoint del Cnn14_16khz en checkpoints/
+Para el funcionamiento del modelo es necesario poner el checkpoint del Cnn14_16khz (Cnn14_16k_mAP=0.438.pth) en checkpoints/
 
-El código en panns/ obviamente no está hecho por mí, pertenece a los creadores de la CNN14 y se usa como apoyo para mi embedder.
+El código en panns/ obviamente no está hecho por mí, pertenece a los creadores de la CNN14 y se usa como librería de apoyo para mi embedder.
 
 Puedes descargarlo desde aquí:
 
