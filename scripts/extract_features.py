@@ -56,7 +56,7 @@ def dataset_mean_std(csv_path):
         all_std.append(mel.std())
 
     mean = float(np.mean(all_mean))
-    std  = float(np.mean(all_std))
+    std = float(np.mean(all_std))
     print(f"media={mean:.4f}  desviacion estandar={std:.4f}")
 
     return mean, std
@@ -66,21 +66,21 @@ def dataset_mean_std(csv_path):
 @torch.no_grad()
 def extract_features_split(model, csv_path, out_emb, out_labels, mel_mean, mel_std, batch_size, device):
     dataset = MelDataset(csv_path, mel_mean, mel_std)
-    loader  = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    n_samples   = len(dataset)
-    emb_dim     = 2048
+    n_samples = len(dataset)
+    emb_dim = 2048
 
     # Creamos los archivos en disco con el tamanyo final desde el principio escribiendo directamente sin cargar todo en ram
-    emb_mmap    = np.memmap(out_emb,    dtype=np.float32, mode="w+", shape=(n_samples, emb_dim))
+    emb_mmap = np.memmap(out_emb,    dtype=np.float32, mode="w+", shape=(n_samples, emb_dim))
     labels_mmap = np.memmap(out_labels, dtype=np.int64,   mode="w+", shape=(n_samples,))
 
     idx = 0
     for mels, labels in tqdm(loader, desc=csv_path.stem):
-        emb   = model(mels.to(device)).cpu().numpy()
-        n     = emb.shape[0]
+        emb = model(mels.to(device)).cpu().numpy()
+        n = emb.shape[0]
         # Escribimos el batch en la posicion que le toque
-        emb_mmap   [idx : idx + n] = emb
+        emb_mmap[idx : idx + n] = emb
         labels_mmap[idx : idx + n] = labels.numpy()
         idx += n
 
@@ -88,6 +88,15 @@ def extract_features_split(model, csv_path, out_emb, out_labels, mel_mean, mel_s
     emb_mmap.flush()
     labels_mmap.flush()
     del emb_mmap, labels_mmap
+
+    # Convertimos a .npy para que np.load funcione en el resto del pipeline
+    arr = np.memmap(out_emb, dtype=np.float32, mode="r", shape=(n_samples, emb_dim))
+    np.save(out_emb, arr)
+    del arr
+
+    arr = np.memmap(out_labels, dtype=np.int64, mode="r", shape=(n_samples,))
+    np.save(out_labels, arr)
+    del arr
 
     print(f"{out_emb.name}: ({n_samples}, {emb_dim})")
 
