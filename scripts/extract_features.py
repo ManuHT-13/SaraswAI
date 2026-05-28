@@ -71,32 +71,38 @@ def extract_features_split(model, csv_path, out_emb, out_labels, mel_mean, mel_s
     n_samples = len(dataset)
     emb_dim = 2048
 
-    # Creamos los archivos en disco con el tamanyo final desde el principio escribiendo directamente sin cargar todo en ram
-    emb_mmap = np.memmap(out_emb,    dtype=np.float32, mode="w+", shape=(n_samples, emb_dim))
-    labels_mmap = np.memmap(out_labels, dtype=np.int64,   mode="w+", shape=(n_samples,))
+    # Usamos archivos temporales distintos para el memmap, evitando conflicto con los .npy finales
+    tmp_emb    = str(out_emb).replace(".npy", "_tmp.bin")
+    tmp_labels = str(out_labels).replace(".npy", "_tmp.bin")
+
+    emb_mmap    = np.memmap(tmp_emb,    dtype=np.float32, mode="w+", shape=(n_samples, emb_dim))
+    labels_mmap = np.memmap(tmp_labels, dtype=np.int64,   mode="w+", shape=(n_samples,))
 
     idx = 0
     for mels, labels in tqdm(loader, desc=csv_path.stem):
         emb = model(mels.to(device)).cpu().numpy()
         n = emb.shape[0]
-        # Escribimos el batch en la posicion que le toque
         emb_mmap[idx : idx + n] = emb
         labels_mmap[idx : idx + n] = labels.numpy()
         idx += n
 
-    # Forzamos escritura a disco y liberamos la memoria almacenada
     emb_mmap.flush()
     labels_mmap.flush()
     del emb_mmap, labels_mmap
 
-    # Convertimos a .npy para que np.load funcione en el resto del pipeline
-    arr = np.memmap(out_emb, dtype=np.float32, mode="r", shape=(n_samples, emb_dim))
-    np.save(out_emb, arr)
+    # Leemos los binarios temporales y los guardamos como .npy correctamente
+    arr = np.memmap(tmp_emb, dtype=np.float32, mode="r", shape=(n_samples, emb_dim))
+    np.save(str(out_emb), arr)
     del arr
 
-    arr = np.memmap(out_labels, dtype=np.int64, mode="r", shape=(n_samples,))
-    np.save(out_labels, arr)
+    arr = np.memmap(tmp_labels, dtype=np.int64, mode="r", shape=(n_samples,))
+    np.save(str(out_labels), arr)
     del arr
+
+    # Limpiamos los archivos temporales
+    import os
+    os.remove(tmp_emb)
+    os.remove(tmp_labels)
 
     print(f"{out_emb.name}: ({n_samples}, {emb_dim})")
 
